@@ -530,7 +530,7 @@ menuferrament(){
         #--------------------
         elif [ "$cake" == "9" ]; then
         local_version=$(cat /opt/DragonCore/version.txt)
-        remote_version=$(wget -qO- https://raw.githubusercontent.com/zeusxprime/ssh/refs/heads/mainmain/version.txt)
+        remote_version=$(wget -qO- https://raw.githubusercontent.com/zeusxprime/ssh/refs/heads/main/version.txt)
         if [[ "$local_version" == "$remote_version" ]]; then
             clear
             echo ""
@@ -547,7 +547,7 @@ menuferrament(){
             echo ""
             lowercaseInput=$(echo "$att" | tr '[:upper:]' '[:lower:]')
             if [[ "$lowercaseInput" == 'y' || "$lowercaseInput" == 's' ]]; then
-                bash <(wget -qO- https://raw.githubusercontent.com/zeusxprime/ssh/refs/heads/mainmain/install.sh)
+                bash <(wget -qO- https://raw.githubusercontent.com/zeusxprime/ssh/refs/heads/main/install.sh)
                 clear
                 echo ""
                 echo "Por favor digite menu novamente!"

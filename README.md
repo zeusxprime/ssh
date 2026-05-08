@@ -1,7 +1,7 @@
 Para instalar use o comando abaixo:
 
 ```sh
-bash <(wget -qO- https://raw.githubusercontent.com/zeusxprime/ssh/refs/heads/mainmain/install.sh)
+bash <(wget -qO- https://raw.githubusercontent.com/zeusxprime/ssh/refs/heads/main/install.sh)
 ```
 
 Documentação para integração:
