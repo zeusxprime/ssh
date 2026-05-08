@@ -1,0 +1,926 @@
+#!/bin/bash
+colorWhite="\033[0;37m"
+colorReset="\033[0m"
+menu() {
+    echo -e "${colorWhite}"
+    php /opt/DragonCore/menu.php menu
+    echo -ne "> "; read cake
+    #--------------------
+    if [ "$cake" == "1" ]; then
+        menuuser
+        elif [ "$cake" == "2" ]; then
+        menucon
+        #--------------------
+        elif [ "$cake" == "3" ]; then
+        menuferrament
+        #--------------------
+        #--------------------
+        #elif [ "$cake" == "4" ]; then
+        #clear
+        #echo "Analizando CPU/RAM/REDE ...";
+        #php /opt/DragonCore/menu.php statusvps
+        #echo -ne "Pressione enter para continuar"; read enter
+        #menu
+        #--------------------
+        elif [ "$cake" == "0" ]; then
+        clear
+        echo -e "${colorReset}"
+        exit
+    else
+        menu
+    fi
+}
+
+menucon(){
+    clear
+    php /opt/DragonCore/menu.php menuconnect
+    echo -ne "> "; read cake
+    #--------------------
+    if [ -z "$cake" ]; then
+        menucon
+        #--------------------
+        elif [ "$cake" == "0" ]; then
+        menu
+        #--------------------
+        #elif [ "$cake" == "1" ]; then
+        #wdragon="$(php /opt/DragonCore/menu.php pdragonon)"
+        #if [ "$wdragon" == "ON" ];then
+        #clear
+        #echo -ne "Deseja Desativar o Dragon SSH Open? s/n: "; read sn
+        #if [ "$sn" == "s" ];then
+        #php /opt/DragonCore/menu.php pdragonstop
+        #echo -ne "Pressione enter para continuar"; read enter
+        #menucon
+        #else
+        #menucon
+        #fi
+        #menucon
+        #else
+        #clear
+        #echo -ne "Porta > "; read port
+        #if [ -z "$port" ]; then
+        #clear
+        #echo -ne "Porta não pode estar vazia!"; read enter
+        #menucon
+        #else
+        #clear
+        #php /opt/DragonCore/menu.php pdragon $port
+        #echo ""
+        #echo -ne "Pressione enter para continuar"; read enter
+        #menucon
+        #fi
+        #fi
+        elif [ "$cake" == "1" ]; then
+        napon="$(php /opt/DragonCore/menu.php napsteron)"
+        if [ "$napon" == "ON" ];then
+            clear
+            echo -ne "Deseja Desativar o Dragon X GO SSH? s/n: "; read sn
+            if [ "$sn" == "s" ];then
+                php /opt/DragonCore/menu.php napsterstop
+                echo -ne "Pressione enter para continuar"; read enter
+                menucon
+            else
+                menucon
+            fi
+            menucon
+        else
+            clear
+            echo -ne "Porta > "; read port
+            if [ -z "$port" ]; then
+                clear
+                echo -ne "Porta não pode estar vazia!"; read enter
+                menucon
+            else
+                clear
+                php /opt/DragonCore/menu.php napster $port
+                echo ""
+                echo -ne "Pressione enter para continuar"; read enter
+                menucon
+            fi
+        fi
+        #--------------------
+        elif [ "$cake" == "2" ]; then
+        clear
+        ston="$(dpkg -l | grep -q stunnel4 && echo 1 || echo 0)"
+        if [ "$ston" == "1" ];then
+            echo "Deseja remover o Stunnel4?"
+            echo ""
+            echo -ne "s/n: "; read sn
+            if [ "$sn" == "s" ];then
+                bash <(php /opt/DragonCore/menu.php installst)
+                rm -rf /etc/stunnel
+                echo ""
+                echo "Stunnel4 Removido!"
+                echo ""
+                echo -ne "Pressione enter para continuar"; read enter
+                menucon
+            else
+                menucon
+            fi
+            menucon
+        else
+            clear
+            echo -ne "Porta > "; read port
+            if [ -z "$port" ]; then
+                clear
+                echo -ne "Porta não pode estar vazia!"; read enter
+                menucon
+            else
+                clear
+                bash <(php /opt/DragonCore/menu.php update)
+                bash <(php /opt/DragonCore/menu.php upgrade)
+                bash <(php /opt/DragonCore/menu.php installst)
+                bash <(php /opt/DragonCore/menu.php createconf $port)
+                bash <(php /opt/DragonCore/menu.php ssl_certif)
+                bash <(php /opt/DragonCore/menu.php restartst)
+                echo ""
+                clear
+                echo ""
+                echo "Stunnel4 instalado porta: $port"
+                echo ""
+                echo -ne "Pressione enter para continuar"; read enter
+                menucon
+            fi
+        fi
+        #--------------------
+        elif [ "$cake" == "3" ]; then
+        clear
+        ovpnin="$(php /opt/DragonCore/menu.php checkinstall)"
+        if [ "$ovpnin" == "OK" ];then
+            ovpnni="$(php /opt/DragonCore/menu.php checkovpon)"
+            if [ "$ovpnni" == "OK" ];then
+                clear
+                echo -ne "Deseja Desativar o OVPN? (1) ou Remover? (2) 1/2: "; read sn
+                if [ "$sn" == "1" ];then
+                    php /opt/DragonCore/menu.php stopovpn
+                    echo -ne "Pressione enter para continuar"; read enter
+                    menucon
+                    elif [ "$sn" == "2" ];then
+                    php /opt/DragonCore/menu.php stopovpn
+                    apt purge openvpn -y && rm -rf /etc/openvpn
+                    menucon
+                else
+                    menucon
+                fi
+            else
+                clear
+                bash <(php /opt/DragonCore/menu.php startovpn)
+                echo -ne "Pressione enter para continuar"; read enter
+                menucon
+            fi
+        else
+            bash <(php /opt/DragonCore/menu.php ovpnin)
+            php /opt/DragonCore/menu.php setupOpenVPN
+            bash <(php /opt/DragonCore/menu.php ipv4)
+            bash <(php /opt/DragonCore/menu.php ipv42)
+            php /opt/DragonCore/menu.php client
+            php /opt/DragonCore/menu.php client2
+            bash <(php /opt/DragonCore/menu.php startovpn)
+            echo ""
+            clear
+            echo ""
+            echo "OpenVPN instalado porta: 1194"
+            echo ""
+            echo -ne "Pressione enter para continuar"; read enter
+            menucon
+        fi
+        #--------------------
+        #elif [ "$cake" == "5" ]; then
+        #menuv2
+        #--------------------
+        elif [ "$cake" == "4" ]; then
+        # Xray Core management
+        clear
+        menuxray
+        
+        elif [ "$cake" == "5" ]; then
+        clear
+        dnon="$(php /opt/DragonCore/menu.php dnstton)"
+        if [ "$dnon" == "ON" ]; then
+            echo "DNSTT esta ON."
+            echo "1) Parar DNSTT"
+            echo "2) Mostrar PubKey"
+            echo "0) Voltar"
+            echo -ne "> "; read op
+            if [ "$op" == "1" ]; then
+                php /opt/DragonCore/menu.php dnsttstop
+                echo -ne "Pressione enter para continuar"; read enter
+                menucon
+                elif [ "$op" == "2" ]; then
+                php /opt/DragonCore/menu.php dnsttpub
+                echo -ne "Pressione enter para continuar"; read enter
+                menucon
+            else
+                menucon
+            fi
+        else
+            echo "Configurar DNSTT (SlowDNS)"
+            echo ""
+            echo -ne "Porta UDP (53/5300) [5300] > "; read port
+            [ -z "$port" ] && port=5300
+            echo -ne "NS Domain (ex: t.example.com) > "; read ns
+            if [ -z "$ns" ]; then
+                echo "NS Domain nao pode ficar vazio!"
+                echo -ne "Pressione enter para continuar"; read enter
+                menucon
+            fi
+            echo -ne "Destino (host:porta, ex: 127.0.0.1:8000) [127.0.0.1:8000] > "; read dest
+            [ -z "$dest" ] && dest="127.0.0.1:8000"
+            
+            clear
+            php /opt/DragonCore/menu.php dnstt "$port" "$ns" "$dest"
+            echo ""
+            echo -ne "Pressione enter para continuar"; read enter
+            menucon
+        fi
+        elif [ "$cake" == "6" ]; then
+        clear
+        echo "Portas Ativas"
+        echo ""
+        php /opt/DragonCore/menu.php infoport
+        echo ""
+        echo -ne "Pressione enter para continuar"; read enter
+        menucon
+    else
+        menucon
+    fi
+}
+
+menuxray(){
+    clear
+    php /opt/DragonCore/menu.php menuxray
+    echo -ne "> "; read option
+    if [ -z "$option" ]; then
+        menuxray
+        elif [ "$option" == "0" ]; then
+        menucon
+        elif [ "$option" == "1" ]; then
+        clear
+        echo -ne "Nome do usuario > "; read usr
+        if [ -z "$usr" ]; then
+            menuxray
+        else
+            echo -ne "Protocolo (ws/xhttp/grpc/tcp) [ws] > "; read proto
+            [ -z "$proto" ] && proto="ws"
+            php /opt/DragonCore/menu.php xrayAddUser "$usr" "$proto"
+            echo ""
+            echo -ne "Pressione enter para continuar"; read enter
+            menuxray
+        fi
+        elif [ "$option" == "2" ]; then
+        clear
+        php /opt/DragonCore/menu.php xrayListUsers
+        echo ""
+        echo -ne "ID ou UUID para remover > "; read ident
+        if [ -n "$ident" ]; then
+            php /opt/DragonCore/menu.php xrayRemoveUser "$ident"
+            echo ""
+            echo -ne "Pressione enter para continuar"; read enter
+            menuxray
+        fi
+        menuxray
+        elif [ "$option" == "3" ]; then
+        clear
+        php /opt/DragonCore/menu.php xrayListUsers
+        echo ""
+        echo -ne "Pressione enter para continuar"; read enter
+        menuxray
+        elif [ "$option" == "4" ]; then
+        clear
+        php /opt/DragonCore/menu.php xrayInfo
+        echo ""
+        echo -ne "Pressione enter para continuar"; read enter
+        menuxray
+        elif [ "$option" == "5" ]; then
+        clear
+        echo -ne "Dominio (ex: vpn.seudominio.com) > "; read dominio
+        if [ -n "$dominio" ]; then
+            php /opt/DragonCore/menu.php xrayCert "$dominio"
+            echo ""
+            chmod 777 -R /opt/DragonCoreSSL
+            echo -ne "Pressione enter para continuar"; read enter
+            menuxray
+        fi
+        menuxray
+        elif [ "$option" == "6" ]; then
+        clear
+        echo -ne "Porta do inbound [443] > "; read p
+        [ -z "$p" ] && p=443
+        echo -ne "Protocolo (ws/xhttp/grpc/tcp) [ws] > "; read pr
+        [ -z "$pr" ] && pr="ws"
+        bash <(php /opt/DragonCore/menu.php xrayInstall)
+        php /opt/DragonCore/menu.php xrayGenerateConfig "$p" "$pr"
+        echo ""
+        chmod 777 /usr/local/etc/xray/config.json
+        echo -ne "Pressione enter para continuar"; read enter
+        menuxray
+        elif [ "$option" == "7" ]; then
+        clear
+        echo -ne "Deseja remover o Xray Core? S/n > "; read sn
+        lower=$(echo "$sn" | tr '[:upper:]' '[:lower:]')
+        if [[ "$lower" == "s" || "$lower" == "y" ]]; then
+            bash <(php /opt/DragonCore/menu.php xrayRemove)
+            echo ""
+            echo -ne "Pressione enter para continuar"; read enter
+            menuxray
+        fi
+        menuxray
+    else
+        menuxray
+    fi
+}
+
+menuferrament(){
+    clear
+    php /opt/DragonCore/menu.php menuferramenta
+    echo -ne "> "; read cake
+    #--------------------
+    if [ -z "$cake" ]; then
+        menuferrament
+        #--------------------
+        elif [ "$cake" == "0" ]; then
+        menu
+        #--------------------
+        elif [ "$cake" == "1" ]; then
+        clear
+        echo ""
+        echo -ne "Restaurar Backup? S/N > "; read att
+        echo ""
+        lowercaseInput=$(echo "$att" | tr '[:upper:]' '[:lower:]')
+        if [[ "$lowercaseInput" == 'y' || "$lowercaseInput" == 's' ]]; then
+            clear
+            bk=$(php /opt/DragonCore/menu.php checkbackup)
+            if [ "$bk" = "OK" ]; then
+                php /opt/DragonCore/menu.php unpck
+                php /opt/DragonCore/menu.php paswd
+                php /opt/DragonCore/menu.php db
+                rm -rf /root/temp
+                echo ""
+                echo "Restauracao concluida"
+                echo ""
+                echo -ne "Pressione enter para continuar"; read enter
+                menuferrament
+            else
+                clear
+                echo "backup.vps nao encontrado na pasta /root/"
+                echo ""
+                echo -ne "Pressione enter para continuar"; read enter
+                menuferrament
+            fi
+        else
+            menuferrament
+        fi
+        #--------------------
+        elif [ "$cake" == "2" ]; then
+        bdon="$(php /opt/DragonCore/menu.php badvpnon)"
+        if [ "$bdon" == "ON" ];then
+            clear
+            echo -ne "Deseja Desativar o BadVpnX? s/n: "; read sn
+            if [ "$sn" == "s" ];then
+                bash <(php /opt/DragonCore/menu.php badvpnstop)
+                echo -ne "Pressione enter para continuar"; read enter
+                menuferrament
+            else
+                menuferrament
+            fi
+        else
+            clear
+            bash <(php /opt/DragonCore/menu.php badvpn)
+            echo ""
+            echo -ne "Pressione enter para continuar"; read enter
+            menuferrament
+        fi
+        #--------------------
+        #elif [ "$cake" == "3" ]; then
+        #clear
+        #echo "Uso CPU/RAM"
+        #echo ""
+        #php /opt/DragonCore/menu.php getVpsInformation
+        #echo ""
+        #echo -ne "Pressione enter para continuar"; read enter
+        #menuferrament
+        #--------------------
+        elif [ "$cake" == "3" ]; then
+        clear
+        onnet=$(php /opt/DragonCore/menu.php checknet)
+        if [ "$onnet" == "ON" ];then
+            echo -ne "Deseja desativar o balanceamento? S/N > "; read sn
+            lowercaseInput=$(echo "$sn" | tr '[:upper:]' '[:lower:]')
+            if [[ "$lowercaseInput" == 'y' || "$lowercaseInput" == 's' ]]; then
+                php /opt/DragonCore/menu.php insertnet
+                echo ""
+                echo -ne "Pressione enter para continuar"; read enter
+                menuferrament
+            else
+                menuferrament
+            fi
+        else
+            php /opt/DragonCore/menu.php insertnet
+            echo ""
+            echo -ne "Pressione enter para continuar"; read enter
+        fi
+        menuferrament
+        #--------------------
+        elif [ "$cake" == "4" ]; then
+        chkuser="$(php /opt/DragonCore/menu.php checkuseron)"
+        if [ "$chkuser" == "ON" ];then
+            clear
+            echo -ne "Deseja Desativar o CheckUser Mult APP? s/n: "; read sn
+            if [ "$sn" == "s" ];then
+                php /opt/DragonCore/menu.php checkuserstop
+                echo -ne "Pressione enter para continuar"; read enter
+                menuferrament
+            else
+                menuferrament
+            fi
+        else
+            clear
+            php /opt/DragonCore/menu.php checkuserstart
+            echo ""
+            echo -ne "Pressione enter para continuar"; read enter
+            menuferrament
+        fi
+        #--------------------
+        elif [ "$cake" == "5" ]; then
+        clear
+        bck2=$(php /opt/DragonCore/menu.php ckbkdragon)
+        if [ "$bck2" == "OK" ];then
+            echo -ne "Deseja Restaurar o backup? S/N > "; read sn
+            lowercaseInput=$(echo "$sn" | tr '[:upper:]' '[:lower:]')
+            if [[ "$lowercaseInput" == 'y' || "$lowercaseInput" == 's' ]]; then
+                php /opt/DragonCore/menu.php restorebackupuser
+                php /opt/DragonCore/menu.php restorebackupconnect
+                rm /root/dragoncoressh.json
+                echo ""
+                echo -ne "Pressione enter para continuar"; read enter
+                menuferrament
+            else
+                menuferrament
+            fi
+        else
+            echo -ne "Gerar backup do DragonCoreSSH? S/n > "; read sn
+            lowercaseInput=$(echo "$sn" | tr '[:upper:]' '[:lower:]')
+            if [[ "$lowercaseInput" == 'y' || "$lowercaseInput" == 's' ]]; then
+                php /opt/DragonCore/menu.php createbackup
+                echo ""
+                echo -ne "Pressione enter para continuar"; read enter
+                menuferrament
+            else
+                menuferrament
+            fi
+        fi
+        menuferrament
+        #--------------------
+        elif [ "$cake" == "6" ]; then
+        clear
+        autock=$(php /opt/DragonCore/menu.php ckautomenu)
+        if [ "$autock" == "notok" ];then
+            echo -ne "Deseja Ativar o Auto Menu? S/N > "; read sn
+            lowercaseInput=$(echo "$sn" | tr '[:upper:]' '[:lower:]')
+            if [[ "$lowercaseInput" == 'y' || "$lowercaseInput" == 's' ]]; then
+                php /opt/DragonCore/menu.php automenu
+                echo ""
+                echo -ne "Pressione enter para continuar"; read enter
+                menuferrament
+            else
+                menuferrament
+            fi
+        else
+            echo -ne "Deseja Desativar o Auto Menu? S/n > "; read sn
+            lowercaseInput=$(echo "$sn" | tr '[:upper:]' '[:lower:]')
+            if [[ "$lowercaseInput" == 'y' || "$lowercaseInput" == 's' ]]; then
+                php /opt/DragonCore/menu.php noautomenu
+                echo ""
+                echo -ne "Pressione enter para continuar"; read enter
+                menuferrament
+            else
+                menuferrament
+            fi
+        fi
+        menuferrament
+        #--------------------
+        elif [ "$cake" == "7" ]; then
+        clear
+        echo "Speedtest By Ookle"
+        echo ""
+        php /opt/DragonCore/menu.php speedtest
+        echo ""
+        echo -ne "Pressione enter para continuar"; read enter
+        menuferrament
+        #--------------------
+        elif [ "$cake" == "8" ]; then
+        chklimiter="$(php /opt/DragonCore/menu.php limitadoron)"
+        if [ "$chklimiter" == "ON" ];then
+            clear
+            echo -ne "Deseja Desativar o Dragon Limiter? s/n: "; read sn
+            if [ "$sn" == "s" ];then
+                php /opt/DragonCore/menu.php limitadorstop
+                echo -ne "Pressione enter para continuar"; read enter
+                menuferrament
+            else
+                menuferrament
+            fi
+        else
+            clear
+            php /opt/DragonCore/menu.php limitador
+            echo ""
+            echo -ne "Pressione enter para continuar"; read enter
+            menuferrament
+        fi
+        #--------------------
+        elif [ "$cake" == "9" ]; then
+        local_version=$(cat /opt/DragonCore/version.txt)
+        remote_version=$(wget -qO- https://raw.githubusercontent.com/zeusxprime/ssh/refs/heads/mainmain/version.txt)
+        if [[ "$local_version" == "$remote_version" ]]; then
+            clear
+            echo ""
+            echo "ja esta atualizado."
+            echo ""
+            echo -ne "Pressione enter para continuar"; read enter
+            menu
+        else
+            clear
+            echo ""
+            echo "Um update esta disponivel. Sua versao: $local_version, Versao atual: $remote_version"
+            echo ""
+            echo -ne "Atualizar script? S/N > "; read att
+            echo ""
+            lowercaseInput=$(echo "$att" | tr '[:upper:]' '[:lower:]')
+            if [[ "$lowercaseInput" == 'y' || "$lowercaseInput" == 's' ]]; then
+                bash <(wget -qO- https://raw.githubusercontent.com/zeusxprime/ssh/refs/heads/mainmain/install.sh)
+                clear
+                echo ""
+                echo "Por favor digite menu novamente!"
+            else
+                menu
+            fi
+        fi
+        #--------------------
+        elif [ "$cake" == "10" ]; then
+        clear
+        php /opt/DragonCore/menu.php getVpsInformation
+        echo ""
+        echo -ne "Pressione enter para continuar"; read enter
+        menuferrament
+        #--------------------
+        elif [ "$cake" == "11" ]; then
+        bottg="$(php /opt/DragonCore/menu.php ulekboton)"
+        if [ "$bottg" == "ON" ];then
+            clear
+            echo -ne "Deseja Desativar o Bot Telegram Ulek? s/n: "; read sn
+            if [ "$sn" == "s" ];then
+                php /opt/DragonCore/menu.php ulekbotstop
+                echo -ne "Pressione enter para continuar"; read enter
+                menuferrament
+            else
+                menuferrament
+            fi
+            menuferrament
+        else
+            clear
+            echo -ne "Para pegar o ID use o bot @dragoncorebot comando /id"
+            echo ""
+            echo -ne "Telegram ID > "; read id
+            if [ -z "$id" ]; then
+                clear
+                echo -ne "ID não pode estar vazia!"; read enter
+                menuferrament
+            else
+                echo -ne "Para pegar o Bot Token use o bot @BotFather"
+                echo ""
+                echo -ne "Bot Token > "; read token
+                if [ -z "$token" ]; then
+                    clear
+                    echo -ne "Token não pode estar vazia!"; read enter
+                    menuferrament
+                else
+                    clear
+                    php /opt/DragonCore/menu.php ulekbot $token $id
+                    echo ""
+                    echo -ne "Pressione enter para continuar"; read enter
+                    menuferrament
+                fi
+            fi
+        fi
+        #--------------------
+        elif [ "$cake" == "12" ]; then
+        clear
+        echo -ne "Remover todos os usuarios? S/n > "; read sn
+        lowercaseInput=$(echo "$sn" | tr '[:upper:]' '[:lower:]')
+        
+        if [[ "$lowercaseInput" == 'y' || "$lowercaseInput" == 's' ]]; then
+            echo -ne "Tem Certeza? essa acao nao pode ser revertida! S/n > "; read sn
+            lowercaseInput=$(echo "$sn" | tr '[:upper:]' '[:lower:]')
+            
+            if [[ "$lowercaseInput" == 'y' || "$lowercaseInput" == 's' ]]; then
+                php /opt/DragonCore/menu.php deleteall
+                echo ""
+                echo -ne "Pressione enter para continuar"; read enter
+                menuferrament
+            else
+                menuferrament
+            fi
+        else
+            menuferrament
+        fi
+        #--------------------
+        elif [ "$cake" == "13" ]; then
+        clear
+        echo -ne "Remover Script e todos usuarios? S/n > "; read sn
+        lowercaseInput=$(echo "$sn" | tr '[:upper:]' '[:lower:]')
+        
+        if [[ "$lowercaseInput" == 'y' || "$lowercaseInput" == 's' ]]; then
+            echo -ne "Tem Certeza? essa acao nao pode ser revertida! S/n > "; read sn
+            lowercaseInput=$(echo "$sn" | tr '[:upper:]' '[:lower:]')
+            
+            if [[ "$lowercaseInput" == 'y' || "$lowercaseInput" == 's' ]]; then
+                php /opt/DragonCore/menu.php deleteall
+                apt purge openvpn -y
+                apt purge stunnel4 -y
+                apt purge php*
+                apt purge postgresql* -y
+                rm -rf /etc/openvpn
+                rm -rf /opt/DragonCoreSSH
+                screen -X -S proxydragon quit
+                screen -X -S openvpn quit
+                screen -X -S badvpn quit
+                screen -X -S checkuser quit
+                screen -X -S napster quit
+                screen -X -S limiter quit
+                rm /bin/menu
+                echo ""
+                echo -ne "Pressione enter para continuar"; read enter
+                menuferrament
+            else
+                menuferrament
+            fi
+        else
+            menuferrament
+        fi
+        #--------------------
+        
+    else
+        menuferrament
+    fi
+    
+}
+
+menuuser(){
+    clear
+    php /opt/DragonCore/menu.php menuusuario
+    echo -ne "> "; read cake
+    #--------------------
+    if [ "$cake" == "1" ]; then
+        clear
+        echo -ne "Usuario > "; read user
+        if [ -z "$user" ]; then
+            menuuser
+        else
+            echo -ne "Senha > "; read pass
+            if [ -z "$pass" ]; then
+                menuuser
+            else
+                echo -ne "Validade > "; read val
+                if [ -z "$val" ]; then
+                    menuuser
+                else
+                    echo -ne "Limite > "; read lim
+                    if [ -z "$lim" ]; then
+                        menuuser
+                    else
+                        php /opt/DragonCore/menu.php criaruser $val $user $pass $lim
+                        clear
+                        echo  "Usuario: $user"
+                        echo  "Senha: $pass"
+                        echo  "Validade: $val"
+                        echo  "Limite: $lim"
+                        echo -ne "Pressione enter para continuar"; read enter
+                        menuuser
+                    fi
+                fi
+            fi
+        fi
+        #--------------------
+        elif [ "$cake" == "2" ]; then
+        clear
+        echo "Gerar Teste:"
+        echo ""
+        echo -ne "Validade em Minutos > "; read data
+        if [ -z "$data" ]; then
+            menuuser
+        else
+            clear
+            php /opt/DragonCore/menu.php gerarteste $data
+            echo ""
+            echo -ne "Pressione enter para continuar"; read enter
+            menuuser
+        fi
+        #--------------------
+        elif [ "$cake" == "0" ]; then
+        menu
+        #--------------------
+        elif [ "$cake" == "3" ]; then
+        clear
+        echo "Remover Usuario:"
+        echo ""
+        php /opt/DragonCore/menu.php printusers
+        echo ""
+        echo -ne "ID > "; read user
+        if [ -z "$user" ];then
+            menuuser
+        else
+            php /opt/DragonCore/menu.php delusernew $user
+            menuuser
+        fi
+        #--------------------
+        elif [ "$cake" == "4" ]; then
+        clear
+        echo "Usuarios online"
+        echo ""
+        php /opt/DragonCore/menu.php sshmonitor
+        echo ""
+        echo -ne "Pressione enter para continuar"; read enter
+        menuuser
+        #--------------------
+        elif [ "$cake" == "5" ]; then
+        clear
+        echo "Alterar Data:"
+        echo ""
+        php /opt/DragonCore/menu.php printvalinew
+        echo ""
+        echo -ne "ID > "; read user
+        echo -ne "Dias > "; read data
+        if [ -z "$user" ]; then
+            menuuser
+            elif [ -z "$data" ]; then
+            menuuser
+        else
+            php /opt/DragonCore/menu.php alterardatanew $user $data
+            clear
+            php /opt/DragonCore/menu.php printvalidnew $user
+            echo ""
+            echo -ne "Pressione enter para continuar"; read enter
+            menuuser
+        fi
+        #--------------------
+        elif [ "$cake" == "6" ]; then
+        clear
+        echo "Alterar Limite:"
+        echo ""
+        php /opt/DragonCore/menu.php printlimnew
+        echo ""
+        echo -ne "ID > "; read user
+        echo -ne "Limit > "; read lim
+        if [ -z "$user" ]; then
+            menuuser
+            elif [ -z "$lim" ]; then
+            menuuser
+        else
+            php /opt/DragonCore/menu.php uplimitnew $user $lim
+            clear
+            php /opt/DragonCore/menu.php printlim2new $user
+            echo ""
+            echo -ne "Pressione enter para continuar"; read enter
+            menuuser
+        fi
+        #--------------------
+        elif [ "$cake" == "7" ]; then
+        clear
+        echo "Alterar Senha:"
+        echo ""
+        php /opt/DragonCore/menu.php printpass
+        echo ""
+        echo -ne "ID > "; read user
+        echo -ne "Senha > "; read pass
+        if [ -z "$user" ]; then
+            menuuser
+            elif [ -z "$pass" ]; then
+            menuuser
+        else
+            clear
+            php /opt/DragonCore/menu.php uppassnew $user $pass
+            #clear
+            php /opt/DragonCore/menu.php printpassnew $user
+            echo ""
+            echo -ne "Pressione enter para continuar"; read enter
+            menuuser
+        fi
+        #--------------------
+        elif [ "$cake" == "8" ]; then
+        clear
+        echo "Relatorio de Usuarios:"
+        echo ""
+        php /opt/DragonCore/menu.php relatoriouser
+        echo ""
+        echo -ne "Pressione enter para continuar"; read enter
+        menuuser
+        #--------------------
+        elif [ "$cake" == "9" ]; then
+        clear
+        echo "Remover Expirados:"
+        echo ""
+        php /opt/DragonCore/menu.php removeexpired
+        echo ""
+        echo -ne "Pressione enter para continuar"; read enter
+        menuuser
+        #--------------------
+    else
+        menuuser
+    fi
+    
+    
+}
+
+menuv2(){
+    clear
+    php /opt/DragonCore/menu.php menuv2
+    echo -ne "> "; read cake
+    if [ "$cake" == "0" ]; then
+        menucon
+        #____________
+        elif [ -z $cake ]; then
+        menuv2
+        #_____________
+        elif [ "$cake" == "1" ]; then
+        clear
+        echo "Criar Usuario:"
+        echo ""
+        echo -ne "Usuario > "; read user
+        if [ -z $user ]; then
+            menuv2
+        else
+            php /opt/DragonCore/menu.php addv2user $user
+            echo ""
+            echo -ne "Pressione enter para continuar"; read enter
+            menuv2
+        fi
+        #----
+        elif [ "$cake" == "2" ]; then
+        clear
+        echo "Remover Usuario:"
+        echo ""
+        php /opt/DragonCore/menu.php v2users
+        echo -ne "ID > "; read user
+        if [ -z $user ]; then
+            menuv2
+        else
+            uid=$(php /opt/DragonCore/menu.php v2uid $user)
+            php /opt/DragonCore/menu.php delv2 $uid
+            php /opt/DragonCore/menu.php dlv2 $user
+            echo "UUID: $uid REMOVIDO!"
+            echo ""
+            echo -ne "Pressione enter para continuar"; read enter
+            menuv2
+        fi
+        elif [ "$cake" == "3" ]; then
+        clear
+        echo "Usuarios:"
+        echo ""
+        php /opt/DragonCore/menu.php v2users
+        echo ""
+        echo -ne "Pressione enter para continuar"; read enter
+        menuv2
+        #----
+        elif [ "$cake" == "4" ]; then
+        clear
+        echo "Link VMESS:"
+        echo ""
+        php /opt/DragonCore/menu.php v2users
+        echo -ne "ID > "; read user
+        if [ -z $user ]; then
+            menuv2
+        else
+            uid=$(php /opt/DragonCore/menu.php v2uid $user)
+            echo ""
+            php /opt/DragonCore/menu.php extractVmessUrlByUUID $uid
+            echo ""
+            echo -ne "Pressione enter para continuar"; read enter
+            menuv2
+        fi
+        #-----
+        elif [ "$cake" == "5" ];then
+        clear
+        bash <(php /opt/DragonCore/menu.php v2protocol)
+        menuv2
+        #-----
+        elif [ "$cake" == "6" ];then
+        clear
+        bash <(php /opt/DragonCore/menu.php v2tls)
+        menuv2
+        #-----
+        elif [ "$cake" == "7" ];then
+        clear
+        bash <(php /opt/DragonCore/menu.php v2port)
+        menuv2
+        #-----
+        elif [ "$cake" == "8" ];then
+        clear
+        bash <(php /opt/DragonCore/menu.php intallv2)
+        menuv2
+        #-----
+    else
+        menuv2
+    fi
+}
+
+menu
