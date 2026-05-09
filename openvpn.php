@@ -182,10 +182,6 @@ function stopovpn()
 function fixovpn2()
 {
     $openVPNPath = "/etc/openvpn";
-    $pl = trim((string)exec("find /usr -type f -name 'openvpn-plugin-auth-pam.so' | head -n 1"));
-    if ($pl === '') {
-        $pl = '/usr/lib/x86_64-linux-gnu/openvpn/plugins/openvpn-plugin-auth-pam.so';
-    }
     $configContent = "
 port 1194
 proto tcp
@@ -217,7 +213,7 @@ crl-verify crl.pem
 client-to-client
 verify-client-cert none
 username-as-common-name
-plugin $pl login
+plugin /usr/lib/x86_64-linux-gnu/openvpn/plugins/openvpn-plugin-auth-pam.so login
 duplicate-cn
 ";
     file_put_contents("$openVPNPath/server.conf", $configContent);
