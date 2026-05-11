@@ -1,4 +1,48 @@
 #!/bin/bash
+set -e
+
+# Token do repositório privado do DragonSSH.
+# Troque TOKEN_DO_DRAGONSSH pelo token real ou envie por variável de ambiente.
+DRAGONSSH_GITHUB_TOKEN="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"
+export GIT_TERMINAL_PROMPT=0
+export GCM_INTERACTIVE=Never
+
+is_placeholder_token() {
+    case "${1:-}" in
+        ""|TOKEN_DO_*|SEU_TOKEN*|tokenaqui|TOKEN_AQUI) return 0 ;;
+        *) return 1 ;;
+    esac
+}
+
+urlencode_token() {
+    printf '%s' "$1" | sed 's/%/%25/g; s/@/%40/g; s/:/%3A/g; s/#/%23/g; s/\//%2F/g; s/?/%3F/g; s/&/%26/g'
+}
+
+github_repo_url() {
+    if is_placeholder_token "${DRAGONSSH_GITHUB_TOKEN:-}"; then
+        printf '%s' "https://github.com/zeusxprime/ssh.git"
+    else
+        local encoded
+        encoded="$(urlencode_token "$DRAGONSSH_GITHUB_TOKEN")"
+        printf '%s' "https://x-access-token:${encoded}@github.com/zeusxprime/ssh.git"
+    fi
+}
+
+github_raw_download() {
+    local output="$1"
+    local url="$2"
+
+    if is_placeholder_token "${DRAGONSSH_GITHUB_TOKEN:-}"; then
+        curl -fsSL --retry 2 --connect-timeout 10 --max-time 60 -o "$output" "$url" </dev/null
+    else
+        curl -fsSL --retry 2 --connect-timeout 10 --max-time 60 \
+            -H "Authorization: Bearer ${DRAGONSSH_GITHUB_TOKEN}" \
+            -H "Accept: application/vnd.github.raw" \
+            -H "X-GitHub-Api-Version: 2022-11-28" \
+            -o "$output" "$url" </dev/null
+    fi
+}
+
 if grep -q 'NAME="Debian GNU/Linux"' /etc/os-release; then
     system="debian"
 else
@@ -47,19 +91,22 @@ cd /opt/
 rm -rf DragonCore
 cd "$HOME"
 
-git clone https://github.com/zeusxprime/ssh.git /opt/DragonCore
+git clone "$(github_repo_url)" /opt/DragonCore || {
+    echo "Erro ao clonar o repositório DragonSSH. Verifique DRAGONSSH_GITHUB_TOKEN com Contents: Read-only."
+    exit 1
+}
 rm -rf /opt/DragonCore/aarch64
 rm -rf /opt/DragonCore/x86_64
 rm -rf /opt/DragonCore/install.sh
 
-curl -s -L -o /opt/DragonCore/menu https://raw.githubusercontent.com/zeusxprime/ssh/refs/heads/main/menu
-curl -s -L -o /opt/DragonCore/dragon_go https://raw.githubusercontent.com/zeusxprime/ssh/refs/heads/main/$(uname -m)/dragon_go
-curl -s -L -o /opt/DragonCore/dnstt-server https://raw.githubusercontent.com/zeusxprime/ssh/refs/heads/main/$(uname -m)/dnstt-server
-curl -s -L -o /opt/DragonCore/badvpn-udpgw https://raw.githubusercontent.com/zeusxprime/ssh/refs/heads/main/$(uname -m)/badvpn-udpgw
-curl -s -L -o /opt/DragonCore/libcrypto.so.3 https://raw.githubusercontent.com/zeusxprime/ssh/refs/heads/main/$(uname -m)/libcrypto.so.3
-curl -s -L -o /opt/DragonCore/libssl.so.3 https://raw.githubusercontent.com/zeusxprime/ssh/refs/heads/main/$(uname -m)/libssl.so.3
-curl -s -L -o /opt/DragonCore/ProxyDragon https://raw.githubusercontent.com/zeusxprime/ssh/refs/heads/main/$(uname -m)/ProxyDragon
-curl -s -L -o /opt/DragonCore/ulekbot https://raw.githubusercontent.com/zeusxprime/ssh/refs/heads/main/$(uname -m)/ulekbot
+github_raw_download /opt/DragonCore/menu https://raw.githubusercontent.com/zeusxprime/ssh/refs/heads/main/menu
+github_raw_download /opt/DragonCore/dragon_go https://raw.githubusercontent.com/zeusxprime/ssh/refs/heads/main/$(uname -m)/dragon_go
+github_raw_download /opt/DragonCore/dnstt-server https://raw.githubusercontent.com/zeusxprime/ssh/refs/heads/main/$(uname -m)/dnstt-server
+github_raw_download /opt/DragonCore/badvpn-udpgw https://raw.githubusercontent.com/zeusxprime/ssh/refs/heads/main/$(uname -m)/badvpn-udpgw
+github_raw_download /opt/DragonCore/libcrypto.so.3 https://raw.githubusercontent.com/zeusxprime/ssh/refs/heads/main/$(uname -m)/libcrypto.so.3
+github_raw_download /opt/DragonCore/libssl.so.3 https://raw.githubusercontent.com/zeusxprime/ssh/refs/heads/main/$(uname -m)/libssl.so.3
+github_raw_download /opt/DragonCore/ProxyDragon https://raw.githubusercontent.com/zeusxprime/ssh/refs/heads/main/$(uname -m)/ProxyDragon
+github_raw_download /opt/DragonCore/ulekbot https://raw.githubusercontent.com/zeusxprime/ssh/refs/heads/main/$(uname -m)/ulekbot
 
 cd /opt/DragonCore
 chmod +x *
