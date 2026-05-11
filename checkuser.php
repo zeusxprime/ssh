@@ -153,7 +153,9 @@ function remaining_info_from_timestamp($expirationTs)
         return ["expirado", 0, 0, "expired"];
     }
 
-    $totalMinutes = (int)ceil($remainingSeconds / 60);
+    // Arredonda para baixo: no último minuto mostra 00h:00,
+    // mas só expira quando $remainingSeconds <= 0.
+    $totalMinutes = (int)floor($remainingSeconds / 60);
     if ($totalMinutes < 1440) {
         $hours = intdiv($totalMinutes, 60);
         $minutes = $totalMinutes % 60;
