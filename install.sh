@@ -21,13 +21,18 @@ warn(){ echo -e "${YELLOW}$*${NC}"; }
 fail(){ echo -e "${RED}Erro:${NC} $*"; exit 1; }
 
 progress_line(){
-  local percent="$1" text="$2" width=30 filled empty bar
+  local percent="$1" text="$2" width=30 filled empty bar cols max_text
   (( percent < 0 )) && percent=0
   (( percent > 100 )) && percent=100
   filled=$(( percent * width / 100 ))
   empty=$(( width - filled ))
   bar="$(printf '%*s' "$filled" '' | tr ' ' '#')$(printf '%*s' "$empty" '' | tr ' ' '-')"
-  printf "\r[%s] %3s%% | %-55s" "$bar" "$percent" "$text"
+  cols="$(tput cols 2>/dev/null || echo 80)"
+  max_text=$(( cols - width - 12 ))
+  (( max_text < 20 )) && max_text=20
+  text="${text:0:$max_text}"
+  # Limpa a linha e redesenha no mesmo lugar, evitando quebrar linha.
+  printf "\r\033[2K[%s] %3s%% | %s" "$bar" "$percent" "$text"
 }
 
 progress_done(){
@@ -80,14 +85,23 @@ detect_system(){
 cleanup_broken_php_repos(){
   # Remove qualquer repositório PHP externo deixado por tentativas antigas.
   # Isso precisa rodar antes do primeiro apt update, senão o apt pode quebrar.
-  rm -f /etc/apt/sources.list.d/sury-php.list
-  rm -f /etc/apt/trusted.gpg.d/sury-keyring.gpg
+  rm -f /etc/apt/sources.list.d/sury-php.list 2>/dev/null || true
+  rm -f /etc/apt/trusted.gpg.d/sury-keyring.gpg 2>/dev/null || true
   rm -f /etc/apt/sources.list.d/ondrej-ubuntu-php-*.list 2>/dev/null || true
 
   # Caso a linha tenha sido colocada em outro arquivo .list, comenta só ela.
-  grep -RIl "packages.sury.org/php" /etc/apt/sources.list /etc/apt/sources.list.d/*.list 2>/dev/null | while read -r file; do
-    sed -i.bak '/packages\.sury\.org\/php/s/^/# removido pelo instalador DragonSSH: /' "$file" || true
+  # Não pode retornar erro quando não encontrar nada.
+  local files=() file
+  while IFS= read -r file; do
+    [[ -n "$file" ]] && files+=("$file")
+  done < <(grep -RIl "packages.sury.org/php" /etc/apt/sources.list /etc/apt/sources.list.d/*.list 2>/dev/null || true)
+
+  for file in "${files[@]}"; do
+    [[ -f "$file" ]] || continue
+    sed -i.bak '/packages\.sury\.org\/php/s/^/# removido pelo instalador DragonSSH: /' "$file" 2>/dev/null || true
   done
+
+  return 0
 }
 
 detect_arch(){
