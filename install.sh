@@ -79,9 +79,46 @@ install_optional_libssl11(){
 create_menu_wrapper(){
   cat > /bin/menu <<'EOS'
 #!/usr/bin/env bash
-exec /opt/DragonCore/menu "$@"
+bash /opt/DragonCore/menu "$@"
+if command -v gestorvps >/dev/null 2>&1; then
+  exec gestorvps
+elif [[ -x /usr/local/bin/gestorvps ]]; then
+  exec /usr/local/bin/gestorvps
+elif [[ -x /opt/.gestorvps/gestorvps.sh ]]; then
+  exec bash /opt/.gestorvps/gestorvps.sh
+fi
+exit 0
 EOS
   chmod +x /bin/menu
+}
+
+
+ask_install_or_menu(){
+  echo
+  read -r -p "Deseja instalar/atualizar o DragonSSH? [s/n]: " resp
+  case "${resp,,}" in
+    s|sim|y|yes|"")
+      return 0
+      ;;
+    n|nao|não|no)
+      echo "Abrindo menu..."
+      if command -v menu >/dev/null 2>&1; then
+        exec menu
+      elif [[ -x /bin/menu ]]; then
+        exec /bin/menu
+      elif [[ -x "$INSTALL_DIR/menu" ]]; then
+        exec "$INSTALL_DIR/menu"
+      else
+        warn "Menu não encontrado. Instale o DragonSSH primeiro."
+        if command -v gestorvps >/dev/null 2>&1; then exec gestorvps; fi
+        exit 0
+      fi
+      ;;
+    *)
+      warn "Resposta inválida. Use s ou n."
+      ask_install_or_menu
+      ;;
+  esac
 }
 
 add_cron_once(){
@@ -95,6 +132,7 @@ add_cron_once(){
 
 main(){
   require_root
+  ask_install_or_menu
   : > "$LOG_FILE"
   exec > >(tee -a "$LOG_FILE") 2>&1
 
