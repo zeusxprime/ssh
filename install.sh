@@ -25,7 +25,22 @@ require_root(){
 }
 
 detect_system(){
-  if grep -qi 'debian' /etc/os-release 2>/dev/null; then echo debian; else echo ubuntu; fi
+  local id=""
+  if [[ -r /etc/os-release ]]; then
+    . /etc/os-release
+    id="${ID:-}"
+  fi
+  case "$id" in
+    debian) echo debian ;;
+    ubuntu) echo ubuntu ;;
+    *)
+      if command -v lsb_release >/dev/null 2>&1 && [[ "$(lsb_release -is 2>/dev/null | tr '[:upper:]' '[:lower:]')" == "debian" ]]; then
+        echo debian
+      else
+        echo ubuntu
+      fi
+      ;;
+  esac
 }
 
 detect_arch(){
@@ -53,16 +68,24 @@ download_required(){
 install_php_repo(){
   local system="$1"
   apt_install lsb-release ca-certificates apt-transport-https software-properties-common gnupg curl wget git sudo
+
   if [[ "$system" == "debian" ]]; then
     if ! grep -Rqs "packages.sury.org/php" /etc/apt/sources.list /etc/apt/sources.list.d 2>/dev/null; then
+      rm -f /etc/apt/trusted.gpg.d/sury-keyring.gpg
       curl -fsSL https://packages.sury.org/php/apt.gpg | gpg --dearmor -o /etc/apt/trusted.gpg.d/sury-keyring.gpg
+      chmod 0644 /etc/apt/trusted.gpg.d/sury-keyring.gpg
       echo "deb https://packages.sury.org/php/ $(lsb_release -sc) main" > /etc/apt/sources.list.d/sury-php.list
+    else
+      chmod 0644 /etc/apt/trusted.gpg.d/sury-keyring.gpg 2>/dev/null || true
     fi
   else
-    if ! grep -Rqs "/ondrej/php" /etc/apt/sources.list /etc/apt/sources.list.d 2>/dev/null; then
-      add-apt-repository ppa:ondrej/php -y >/dev/null
-    fi
+    # Ubuntu não deve usar o repositório Sury do Debian.
+    # Se uma tentativa anterior deixou esse arquivo, o apt update quebra com InRelease not signed.
+    rm -f /etc/apt/sources.list.d/sury-php.list /etc/apt/trusted.gpg.d/sury-keyring.gpg
+    rm -f /etc/apt/sources.list.d/ondrej-ubuntu-php-*.list 2>/dev/null || true
+    # Usa os pacotes PHP nativos do Ubuntu para evitar erro no ARM/aarch64.
   fi
+
   apt-get update -y -qq -o DPkg::Lock::Timeout=180
 }
 
