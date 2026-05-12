@@ -20,34 +20,94 @@ msg(){ echo -e "${GREEN}$*${NC}"; }
 warn(){ echo -e "${YELLOW}$*${NC}"; }
 fail(){ echo -e "${RED}Erro:${NC} $*"; exit 1; }
 
+progress_line(){
+  local percent="$1" text="$2" width=30 filled empty bar
+  (( percent < 0 )) && percent=0
+  (( percent > 100 )) && percent=100
+  filled=$(( percent * width / 100 ))
+  empty=$(( width - filled ))
+  bar="$(printf '%*s' "$filled" '' | tr ' ' '#')$(printf '%*s' "$empty" '' | tr ' ' '-')"
+  printf "\r[%s] %3s%% | %-55s" "$bar" "$percent" "$text"
+}
+
+progress_done(){
+  progress_line 100 "Instalação finalizada"
+  printf "\n"
+}
+
+run_step(){
+  local percent="$1" text="$2"
+  shift 2
+  progress_line "$percent" "$text"
+  if ! "$@" >>"$LOG_FILE" 2>&1; then
+    printf "\n"
+    echo -e "${RED}O instalador retornou erro em:${NC} $text"
+    echo "Confira o log: $LOG_FILE"
+    tail -n 20 "$LOG_FILE" 2>/dev/null || true
+    exit 1
+  fi
+}
+
+run_step_shell(){
+  local percent="$1" text="$2" code="$3"
+  progress_line "$percent" "$text"
+  if ! bash -c "$code" >>"$LOG_FILE" 2>&1; then
+    printf "\n"
+    echo -e "${RED}O instalador retornou erro em:${NC} $text"
+    echo "Confira o log: $LOG_FILE"
+    tail -n 20 "$LOG_FILE" 2>/dev/null || true
+    exit 1
+  fi
+}
+
 require_root(){
   [[ "${EUID:-$(id -u)}" -eq 0 ]] || fail "execute como root: sudo bash install.sh"
 }
 
 detect_system(){
-  local id=""
+  # Ubuntu somente. Não usa Debian/Sury.
   if [[ -r /etc/os-release ]]; then
     . /etc/os-release
-    id="${ID:-}"
+    if [[ "${ID:-}" != "ubuntu" ]]; then
+      fail "sistema não suportado: ${PRETTY_NAME:-desconhecido}. Este instalador trabalha somente com Ubuntu."
+    fi
+    echo "ubuntu"
+    return 0
   fi
-  case "$id" in
-    debian) echo debian ;;
-    ubuntu) echo ubuntu ;;
-    *)
-      if command -v lsb_release >/dev/null 2>&1 && [[ "$(lsb_release -is 2>/dev/null | tr '[:upper:]' '[:lower:]')" == "debian" ]]; then
-        echo debian
-      else
-        echo ubuntu
-      fi
-      ;;
-  esac
+  fail "não foi possível detectar o sistema. Este instalador trabalha somente com Ubuntu."
+}
+
+cleanup_broken_php_repos(){
+  # Remove qualquer repositório PHP externo deixado por tentativas antigas.
+  # Isso precisa rodar antes do primeiro apt update, senão o apt pode quebrar.
+  rm -f /etc/apt/sources.list.d/sury-php.list
+  rm -f /etc/apt/trusted.gpg.d/sury-keyring.gpg
+  rm -f /etc/apt/sources.list.d/ondrej-ubuntu-php-*.list 2>/dev/null || true
+
+  # Caso a linha tenha sido colocada em outro arquivo .list, comenta só ela.
+  grep -RIl "packages.sury.org/php" /etc/apt/sources.list /etc/apt/sources.list.d/*.list 2>/dev/null | while read -r file; do
+    sed -i.bak '/packages\.sury\.org\/php/s/^/# removido pelo instalador DragonSSH: /' "$file" || true
+  done
 }
 
 detect_arch(){
-  case "$(uname -m)" in
-    x86_64|amd64) echo x86_64 ;;
-    aarch64|arm64) echo aarch64 ;;
-    *) fail "arquitetura não suportada: $(uname -m). Suporte esperado: x86_64/amd64 e aarch64/arm64" ;;
+  # Detecta a arquitetura do Ubuntu antes de instalar.
+  # amd64 usa a pasta x86_64 do DragonSSH; arm64 usa a pasta aarch64.
+  local machine deb_arch
+  machine="$(uname -m)"
+  deb_arch="$(dpkg --print-architecture 2>/dev/null || true)"
+  case "$deb_arch:$machine" in
+    amd64:*|*:x86_64) echo x86_64 ;;
+    arm64:*|*:aarch64) echo aarch64 ;;
+    *) fail "arquitetura não suportada: ${deb_arch:-$machine}. Suporte esperado no Ubuntu: amd64/x86_64 e arm64/aarch64" ;;
+  esac
+}
+
+arch_label(){
+  case "$1" in
+    x86_64) echo "amd64/x86_64" ;;
+    aarch64) echo "arm64/aarch64" ;;
+    *) echo "$1" ;;
   esac
 }
 
@@ -66,26 +126,9 @@ download_required(){
 }
 
 install_php_repo(){
-  local system="$1"
   apt_install lsb-release ca-certificates apt-transport-https software-properties-common gnupg curl wget git sudo
-
-  if [[ "$system" == "debian" ]]; then
-    if ! grep -Rqs "packages.sury.org/php" /etc/apt/sources.list /etc/apt/sources.list.d 2>/dev/null; then
-      rm -f /etc/apt/trusted.gpg.d/sury-keyring.gpg
-      curl -fsSL https://packages.sury.org/php/apt.gpg | gpg --dearmor -o /etc/apt/trusted.gpg.d/sury-keyring.gpg
-      chmod 0644 /etc/apt/trusted.gpg.d/sury-keyring.gpg
-      echo "deb https://packages.sury.org/php/ $(lsb_release -sc) main" > /etc/apt/sources.list.d/sury-php.list
-    else
-      chmod 0644 /etc/apt/trusted.gpg.d/sury-keyring.gpg 2>/dev/null || true
-    fi
-  else
-    # Ubuntu não deve usar o repositório Sury do Debian.
-    # Se uma tentativa anterior deixou esse arquivo, o apt update quebra com InRelease not signed.
-    rm -f /etc/apt/sources.list.d/sury-php.list /etc/apt/trusted.gpg.d/sury-keyring.gpg
-    rm -f /etc/apt/sources.list.d/ondrej-ubuntu-php-*.list 2>/dev/null || true
-    # Usa os pacotes PHP nativos do Ubuntu para evitar erro no ARM/aarch64.
-  fi
-
+  cleanup_broken_php_repos
+  # Ubuntu somente: usa PHP nativo do Ubuntu.
   apt-get update -y -qq -o DPkg::Lock::Timeout=180
 }
 
@@ -93,7 +136,14 @@ install_optional_libssl11(){
   if dpkg -s libssl1.1 >/dev/null 2>&1; then
     echo "libssl1.1 is already installed."
   else
-    echo "deb http://security.ubuntu.com/ubuntu focal-security main" > /etc/apt/sources.list.d/focal-security.list
+    local deb_arch repo_url
+    deb_arch="$(dpkg --print-architecture 2>/dev/null || true)"
+    case "$deb_arch" in
+      arm64) repo_url="http://ports.ubuntu.com/ubuntu-ports" ;;
+      amd64) repo_url="http://security.ubuntu.com/ubuntu" ;;
+      *) fail "arquitetura não suportada para libssl1.1: ${deb_arch:-desconhecida}" ;;
+    esac
+    echo "deb [arch=${deb_arch}] ${repo_url} focal-security main" > /etc/apt/sources.list.d/focal-security-libssl11.list
     apt-get update -y -qq -o DPkg::Lock::Timeout=180
     apt-get install -y -qq libssl1.1
   fi
@@ -157,78 +207,78 @@ main(){
   require_root
   ask_install_or_menu
   : > "$LOG_FILE"
-  exec > >(tee -a "$LOG_FILE") 2>&1
 
-  local system arch
+  local system arch label
   system="$(detect_system)"
   arch="$(detect_arch)"
-
-  msg "Preparando dependências para $system / $arch..."
-  apt-get update -y -qq -o DPkg::Lock::Timeout=180
-  apt_install sudo uuid-runtime curl wget git ca-certificates gnupg lsb-release apt-transport-https software-properties-common net-tools screen cron
-  install_php_repo "$system"
-  apt_install php-cli php-curl php-sqlite3 php-pgsql
-  [[ -e /bin/php ]] || ln -sf "$(command -v php)" /bin/php
-
-  if [[ -f "$INSTALL_DIR/config.php" ]]; then
-    cp "$INSTALL_DIR/config.php" "$CONFIG_BACKUP"
-    msg "Backup de config.php criado em $CONFIG_BACKUP"
-  fi
-
-  msg "Baixando DragonSSH..."
-  rm -rf "$INSTALL_DIR"
-  git clone --depth 1 "$REPO_URL" "$INSTALL_DIR" || fail "falha ao clonar $REPO_URL"
-  rm -rf "$INSTALL_DIR/aarch64" "$INSTALL_DIR/x86_64" "$INSTALL_DIR/install.sh"
-
-  download_required "$RAW_BASE/menu" "$INSTALL_DIR/menu"
-  for bin in dragon_go dnstt-server badvpn-udpgw libcrypto.so.3 libssl.so.3 ProxyDragon ulekbot; do
-    download_required "$RAW_BASE/$arch/$bin" "$INSTALL_DIR/$bin"
-  done
-
-  chmod +x "$INSTALL_DIR"/* || true
-
-  if [[ -f "$CONFIG_BACKUP" ]]; then
-    cp "$CONFIG_BACKUP" "$INSTALL_DIR/config.php"
-    msg "config.php restaurado de $CONFIG_BACKUP"
-  fi
-
-  create_menu_wrapper
-
-  add_cron_once '*/5 * * * * find /run/user -maxdepth 1 -mindepth 1 -type d -exec mount -o remount,size=1M {} \;'
-  add_cron_once '@reboot sleep 30 && /usr/bin/php /opt/DragonCore/menu.php autostart'
-  add_cron_once '@reboot sleep 30 && find /etc/DragonTeste -name "*.sh" -exec {} \;'
-
-  install_optional_libssl11
-
-  msg "Finalizando banco e serviços..."
-  if [[ -f "$INSTALL_DIR/postinstall.php" ]]; then
-    bash <(php "$INSTALL_DIR/postinstall.php" installpostgre) || true
-  fi
-
-  php "$INSTALL_DIR/menu.php" createautostart || true
-  php "$INSTALL_DIR/menu.php" createTable || true
-  php "$INSTALL_DIR/menu.php" createdbdragon || true
-  php "$INSTALL_DIR/menu.php" createv2table || true
-  php "$INSTALL_DIR/dbconvert.php" convertdba || true
-  php "$INSTALL_DIR/dbconvert.php" finishdba || true
-  php "$INSTALL_DIR/menu.php" deletecone ws || true
-  php "$INSTALL_DIR/menu.php" createXrayTable || true
-
-  grep -q '^HostKeyAlgorithms +ssh-rsa' /etc/ssh/sshd_config 2>/dev/null || echo 'HostKeyAlgorithms +ssh-rsa' >> /etc/ssh/sshd_config
-  grep -q '^PubkeyAcceptedKeyTypes +ssh-rsa' /etc/ssh/sshd_config 2>/dev/null || echo 'PubkeyAcceptedKeyTypes +ssh-rsa' >> /etc/ssh/sshd_config
-  systemctl restart ssh 2>/dev/null || systemctl restart sshd 2>/dev/null || true
-
-  screen -X -S proxydragon quit 2>/dev/null || true
-  screen -X -S openvpn quit 2>/dev/null || true
-  screen -X -S badvpn quit 2>/dev/null || true
-  screen -X -S checkuser quit 2>/dev/null || true
-  screen -X -S napster quit 2>/dev/null || true
-  screen -X -S limiter quit 2>/dev/null || true
-  screen -X -S botulek quit 2>/dev/null || true
-
-  php "$INSTALL_DIR/menu.php" autostart || true
+  label="$(arch_label "$arch")"
 
   echo
+  progress_line 1 "Iniciando instalação para Ubuntu / $label"
+  sleep 0.2
+
+  run_step 5 "Limpando repositórios antigos" cleanup_broken_php_repos
+  run_step 10 "Atualizando lista de pacotes" apt-get update -y -qq -o DPkg::Lock::Timeout=180
+  run_step 18 "Instalando dependências base" apt_install sudo uuid-runtime curl wget git ca-certificates gnupg lsb-release apt-transport-https software-properties-common net-tools screen cron
+  run_step 26 "Preparando PHP nativo do Ubuntu" install_php_repo
+  run_step 34 "Instalando módulos PHP" apt_install php-cli php-curl php-sqlite3 php-pgsql
+  run_step_shell 38 "Configurando atalho do PHP" '[[ -e /bin/php ]] || ln -sf "$(command -v php)" /bin/php'
+
+  if [[ -f "$INSTALL_DIR/config.php" ]]; then
+    run_step 42 "Criando backup do config.php" cp "$INSTALL_DIR/config.php" "$CONFIG_BACKUP"
+  fi
+
+  run_step_shell 48 "Baixando DragonSSH" "rm -rf '$INSTALL_DIR' && git clone --depth 1 '$REPO_URL' '$INSTALL_DIR' && rm -rf '$INSTALL_DIR/aarch64' '$INSTALL_DIR/x86_64' '$INSTALL_DIR/install.sh'"
+  run_step 53 "Baixando menu principal" download_required "$RAW_BASE/menu" "$INSTALL_DIR/menu"
+
+  local bin pct
+  pct=56
+  for bin in dragon_go dnstt-server badvpn-udpgw libcrypto.so.3 libssl.so.3 ProxyDragon ulekbot; do
+    run_step "$pct" "Baixando $bin" download_required "$RAW_BASE/$arch/$bin" "$INSTALL_DIR/$bin"
+    pct=$((pct + 4))
+  done
+
+  run_step_shell 84 "Aplicando permissões" "chmod +x '$INSTALL_DIR'/* || true"
+
+  if [[ -f "$CONFIG_BACKUP" ]]; then
+    run_step 86 "Restaurando config.php" cp "$CONFIG_BACKUP" "$INSTALL_DIR/config.php"
+  fi
+
+  run_step 88 "Criando comando menu" create_menu_wrapper
+  run_step 90 "Configurando tarefas automáticas" bash -c "$(declare -f add_cron_once); add_cron_once '*/5 * * * * find /run/user -maxdepth 1 -mindepth 1 -type d -exec mount -o remount,size=1M {} \\;'; add_cron_once '@reboot sleep 30 && /usr/bin/php /opt/DragonCore/menu.php autostart'; add_cron_once '@reboot sleep 30 && find /etc/DragonTeste -name \"*.sh\" -exec {} \\;'"
+  run_step 92 "Instalando libssl1.1" install_optional_libssl11
+
+  run_step_shell 94 "Finalizando banco e serviços" "
+    cd '$INSTALL_DIR'
+    if [[ -f '$INSTALL_DIR/postinstall.php' ]]; then bash <(php '$INSTALL_DIR/postinstall.php' installpostgre) || true; fi
+    php '$INSTALL_DIR/menu.php' createautostart || true
+    php '$INSTALL_DIR/menu.php' createTable || true
+    php '$INSTALL_DIR/menu.php' createdbdragon || true
+    php '$INSTALL_DIR/menu.php' createv2table || true
+    php '$INSTALL_DIR/dbconvert.php' convertdba || true
+    php '$INSTALL_DIR/dbconvert.php' finishdba || true
+    php '$INSTALL_DIR/menu.php' deletecone ws || true
+    php '$INSTALL_DIR/menu.php' createXrayTable || true
+  "
+
+  run_step_shell 97 "Ajustando SSH" "
+    grep -q '^HostKeyAlgorithms +ssh-rsa' /etc/ssh/sshd_config 2>/dev/null || echo 'HostKeyAlgorithms +ssh-rsa' >> /etc/ssh/sshd_config
+    grep -q '^PubkeyAcceptedKeyTypes +ssh-rsa' /etc/ssh/sshd_config 2>/dev/null || echo 'PubkeyAcceptedKeyTypes +ssh-rsa' >> /etc/ssh/sshd_config
+    systemctl restart ssh 2>/dev/null || systemctl restart sshd 2>/dev/null || true
+  "
+
+  run_step_shell 99 "Reiniciando serviços DragonSSH" "
+    screen -X -S proxydragon quit 2>/dev/null || true
+    screen -X -S openvpn quit 2>/dev/null || true
+    screen -X -S badvpn quit 2>/dev/null || true
+    screen -X -S checkuser quit 2>/dev/null || true
+    screen -X -S napster quit 2>/dev/null || true
+    screen -X -S limiter quit 2>/dev/null || true
+    screen -X -S botulek quit 2>/dev/null || true
+    php '$INSTALL_DIR/menu.php' autostart || true
+  "
+
+  progress_done
   msg "Script instalado. Use o comando: menu"
   echo "Log: $LOG_FILE"
 }
