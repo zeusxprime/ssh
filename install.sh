@@ -82,27 +82,6 @@ detect_system(){
   fail "não foi possível detectar o sistema. Este instalador trabalha somente com Ubuntu."
 }
 
-cleanup_broken_php_repos(){
-  # Remove qualquer repositório PHP externo deixado por tentativas antigas.
-  # Isso precisa rodar antes do primeiro apt update, senão o apt pode quebrar.
-  rm -f /etc/apt/sources.list.d/sury-php.list 2>/dev/null || true
-  rm -f /etc/apt/trusted.gpg.d/sury-keyring.gpg 2>/dev/null || true
-  rm -f /etc/apt/sources.list.d/ondrej-ubuntu-php-*.list 2>/dev/null || true
-
-  # Caso a linha tenha sido colocada em outro arquivo .list, comenta só ela.
-  # Não pode retornar erro quando não encontrar nada.
-  local files=() file
-  while IFS= read -r file; do
-    [[ -n "$file" ]] && files+=("$file")
-  done < <(grep -RIl "packages.sury.org/php" /etc/apt/sources.list /etc/apt/sources.list.d/*.list 2>/dev/null || true)
-
-  for file in "${files[@]}"; do
-    [[ -f "$file" ]] || continue
-    sed -i.bak '/packages\.sury\.org\/php/s/^/# removido pelo instalador DragonSSH: /' "$file" 2>/dev/null || true
-  done
-
-  return 0
-}
 
 detect_arch(){
   # Detecta a arquitetura do Ubuntu antes de instalar.
@@ -141,7 +120,6 @@ download_required(){
 
 install_php_repo(){
   apt_install lsb-release ca-certificates apt-transport-https software-properties-common gnupg curl wget git sudo
-  cleanup_broken_php_repos
   # Ubuntu somente: usa PHP nativo do Ubuntu.
   apt-get update -y -qq -o DPkg::Lock::Timeout=180
 }
@@ -231,7 +209,6 @@ main(){
   progress_line 1 "Iniciando instalação para Ubuntu / $label"
   sleep 0.2
 
-  run_step 5 "Limpando repositórios antigos" cleanup_broken_php_repos
   run_step 10 "Atualizando lista de pacotes" apt-get update -y -qq -o DPkg::Lock::Timeout=180
   run_step 18 "Instalando dependências base" apt_install sudo uuid-runtime curl wget git ca-certificates gnupg lsb-release apt-transport-https software-properties-common net-tools screen cron
   run_step 26 "Preparando PHP nativo do Ubuntu" install_php_repo
